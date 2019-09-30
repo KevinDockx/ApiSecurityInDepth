@@ -1,0 +1,37 @@
+@model ApiSecurityInDepth.IDP.Quickstart.Account.LoginDelegationInputViewModel
+
+<div class="login-page">
+    <div class="page-header">
+        <h1>Login</h1>
+    </div>
+
+    <div class="row">
+ 
+            <div class="col-sm-6">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Delegation</h3>
+                    </div>
+                    <div class="panel-body">
+
+                        <form asp-route="Delegate" method="post">
+
+                            <p>You're authenticated as @Model.CurrentUser.Name (@Model.CurrentUser.Subject)</p> 
+
+                            <h6>Choose who you want to act as</h6>
+
+                            @{
+                                for (int i = 0; i < Model.PotentialUsers.Count(); i++)
+                                {
+                                <button class="btn btn-secondary" name="button" value="@Model.PotentialUsers[i].Subject">
+                                    <span>@Model.PotentialUsers[i].Name</span>
+                                    <i class="icon icon-arrow--right"></i>
+                                </button>
+                                }
+                            }
+                        </form>                     
+                    </div>
+                </div>
+            </div>     
+    </div>
+</div>

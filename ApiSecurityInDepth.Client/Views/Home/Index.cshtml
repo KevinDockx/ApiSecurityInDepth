@@ -1,0 +1,28 @@
+﻿<h3>@ViewBag.Message</h3>
+
+
+<div>
+    <a class="btn btn-default" href="~/Home/CallApi">Call API</a>
+    <a class="btn btn-default" href="~/Home/RevokeToken">Revoke token</a>
+    <a class="btn btn-default" href="~/Home/CallApiMultiHop">Call API Multihop</a>
+    <a class="btn btn-default" href="~/Home/GetTokenWithPrivateKeyJWT">Client Authentication with Private Key JWT</a>
+</div>
+
+<h3>Identity token</h3>
+<p>@ViewBag.IdentityToken</p>
+
+<h3>Access token</h3>
+<p>@ViewBag.AccessToken</p>
+
+<h3>Claims</h3>
+<dl>
+    @foreach (var claim in User.Claims)
+    {
+        <dt>
+            @claim.Type
+        </dt>
+        <dd>
+            @claim.Value
+        </dd>
+    }
+</dl>
