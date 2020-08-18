@@ -124,7 +124,7 @@ namespace ApiSecurityInDepth.Client.Controllers
 
         private string CreateSignedToken(string clientId, string audience)
         {
-            var certificate = new X509Certificate2("client.pfx");
+            var certificate = new X509Certificate2("client.pfx", "password");
             var now = DateTime.UtcNow;
 
             var token = new JwtSecurityToken(
