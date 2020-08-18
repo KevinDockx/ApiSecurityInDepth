@@ -37,7 +37,7 @@ namespace ApiSecurityInDepth.API1.Controllers
             {
                 { "subject_token_type",  "urn:ietf:params:oauth:token-type:access_token"},
                 { "subject_token", await HttpContext.GetTokenAsync("access_token") },
-                { "scope", "profile email api2" }
+                { "scope", "profile email api2.fullaccess" }
             }; 
 
             var tokenResponse = await idpClient.RequestTokenAsync(new TokenRequest()

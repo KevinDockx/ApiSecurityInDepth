@@ -1,9 +1,9 @@
 ﻿using IdentityModel;
 using IdentityServer4.Extensions;
 using IdentityServer4.Models;
-using IdentityServer4.Quickstart.UI;
 using IdentityServer4.Services;
 using IdentityServer4.Test;
+using IdentityServerHost.Quickstart.UI;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;

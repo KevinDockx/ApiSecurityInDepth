@@ -50,11 +50,11 @@ namespace ApiSecurityInDepth.Client
                 {
                 options.Authority = "https://localhost:44391";
                 options.RequireHttpsMetadata = false;
-                options.ResponseType = "code id_token";
+                options.ResponseType = "code";
                 options.ClientId = "webclient";
                 options.ClientSecret = "secret";
                 options.Scope.Add("email");
-                options.Scope.Add("api1");
+                options.Scope.Add("api1.fullaccess");
                 options.SaveTokens = true;
 
                     #region ActorClaim
@@ -86,7 +86,6 @@ namespace ApiSecurityInDepth.Client
                                 // set as actor
                                 (ctx.Principal.Identity as ClaimsIdentity).Actor = actorIdentity;
                             }
-
 
                             return Task.CompletedTask;
                         }

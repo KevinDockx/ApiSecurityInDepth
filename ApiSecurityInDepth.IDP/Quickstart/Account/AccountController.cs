@@ -4,6 +4,7 @@
 
 using ApiSecurityInDepth.IDP.Quickstart.Account;
 using IdentityModel;
+using IdentityServer4;
 using IdentityServer4.Events;
 using IdentityServer4.Extensions;
 using IdentityServer4.Models;
@@ -23,7 +24,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IdentityServer4.Quickstart.UI
+namespace IdentityServerHost.Quickstart.UI
 {
     /// <summary>
     /// This sample controller implements a typical login/logout/provision workflow for local and external accounts.
@@ -40,7 +41,6 @@ namespace IdentityServer4.Quickstart.UI
         private readonly IAuthenticationSchemeProvider _schemeProvider;
         private readonly IEventService _events;
         private readonly IDataProtector _protector;
-
 
         public AccountController(
             IIdentityServerInteractionService interaction,
@@ -59,7 +59,6 @@ namespace IdentityServer4.Quickstart.UI
             _schemeProvider = schemeProvider;
             _events = events;
             _protector = provider.CreateProtector("ApiSecurityInDepth.IDP.DelegationDataBagCookie");
-
         }
 
         /// <summary>
@@ -74,14 +73,13 @@ namespace IdentityServer4.Quickstart.UI
             if (vm.IsExternalLoginOnly)
             {
                 // we only have one option for logging in and it's an external provider
-                return RedirectToAction("Challenge", "External", new { provider = vm.ExternalLoginScheme, returnUrl });
+                return RedirectToAction("Challenge", "External", new { scheme = vm.ExternalLoginScheme, returnUrl });
             }
 
             return View(vm);
         }
 
-        #region Postback from username/password - default
-
+        #region Postback without delegation
         ///// <summary>
         ///// Handle postback from username/password login
         ///// </summary>
@@ -100,14 +98,14 @@ namespace IdentityServer4.Quickstart.UI
         //            // if the user cancels, send a result back into IdentityServer as if they 
         //            // denied the consent (even if this client does not require consent).
         //            // this will send back an access denied OIDC error response to the client.
-        //            await _interaction.GrantConsentAsync(context, ConsentResponse.Denied);
+        //            await _interaction.DenyAuthorizationAsync(context, AuthorizationError.AccessDenied);
 
         //            // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
-        //            if (await _clientStore.IsPkceClientAsync(context.ClientId))
+        //            if (context.IsNativeClient())
         //            {
-        //                // if the client is PKCE then we assume it's native, so this change in how to
+        //                // The client is native, so this change in how to
         //                // return the response is for better UX for the end user.
-        //                return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
+        //                return this.LoadingPage("Redirect", model.ReturnUrl);
         //            }
 
         //            return Redirect(model.ReturnUrl);
@@ -125,7 +123,7 @@ namespace IdentityServer4.Quickstart.UI
         //        if (_users.ValidateCredentials(model.Username, model.Password))
         //        {
         //            var user = _users.FindByUsername(model.Username);
-        //            await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.SubjectId, user.Username, clientId: context?.ClientId));
+        //            await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.SubjectId, user.Username, clientId: context?.Client.ClientId));
 
         //            // only set explicit expiration here if user chooses "remember me". 
         //            // otherwise we rely upon expiration configured in cookie middleware.
@@ -140,15 +138,20 @@ namespace IdentityServer4.Quickstart.UI
         //            };
 
         //            // issue authentication cookie with subject ID and username
-        //            await HttpContext.SignInAsync(user.SubjectId, user.Username, props);
+        //            var isuser = new IdentityServerUser(user.SubjectId)
+        //            {
+        //                DisplayName = user.Username
+        //            };
+
+        //            await HttpContext.SignInAsync(isuser, props);
 
         //            if (context != null)
         //            {
-        //                if (await _clientStore.IsPkceClientAsync(context.ClientId))
+        //                if (context.IsNativeClient())
         //                {
-        //                    // if the client is PKCE then we assume it's native, so this change in how to
+        //                    // The client is native, so this change in how to
         //                    // return the response is for better UX for the end user.
-        //                    return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
+        //                    return this.LoadingPage("Redirect", model.ReturnUrl);
         //                }
 
         //                // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
@@ -171,7 +174,7 @@ namespace IdentityServer4.Quickstart.UI
         //            }
         //        }
 
-        //        await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId: context?.ClientId));
+        //        await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId:context?.Client.ClientId));
         //        ModelState.AddModelError(string.Empty, AccountOptions.InvalidCredentialsErrorMessage);
         //    }
 
@@ -179,12 +182,10 @@ namespace IdentityServer4.Quickstart.UI
         //    var vm = await BuildLoginViewModelAsync(model);
         //    return View(vm);
         //}
-
         #endregion
 
 
-        #region Postback from username/password - to delegation screen
-
+        #region Postback with delegation screen
         /// <summary>
         /// Handle postback from username/password login
         /// </summary>
@@ -203,14 +204,14 @@ namespace IdentityServer4.Quickstart.UI
                     // if the user cancels, send a result back into IdentityServer as if they 
                     // denied the consent (even if this client does not require consent).
                     // this will send back an access denied OIDC error response to the client.
-                    await _interaction.GrantConsentAsync(context, ConsentResponse.Denied);
+                    await _interaction.DenyAuthorizationAsync(context, AuthorizationError.AccessDenied);
 
                     // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
-                    if (await _clientStore.IsPkceClientAsync(context.ClientId))
+                    if (context.IsNativeClient())
                     {
-                        // if the client is PKCE then we assume it's native, so this change in how to
+                        // The client is native, so this change in how to
                         // return the response is for better UX for the end user.
-                        return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
+                        return this.LoadingPage("Redirect", model.ReturnUrl);
                     }
 
                     return Redirect(model.ReturnUrl);
@@ -228,7 +229,7 @@ namespace IdentityServer4.Quickstart.UI
                 if (_users.ValidateCredentials(model.Username, model.Password))
                 {
                     var user = _users.FindByUsername(model.Username);
-                    await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.SubjectId, user.Username, clientId: context?.ClientId));
+                    await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.SubjectId, user.Username, clientId: context?.Client.ClientId));
 
                     // write a temp, encrypted cookie with values required for delegation.  Cookie gets cleared on effective signin. 
                     var cookieModel = new DelegationDataBag()
@@ -249,10 +250,10 @@ namespace IdentityServer4.Quickstart.UI
 
                     return await ExecuteDelegationWhenApplicable(user.SubjectId, user.Username, model.ReturnUrl, model.RememberLogin);
 
-                    // rest of code removed - is now handled after the delegation screen
+                    // rest of code removed - is now handled after the delegation screen 
                 }
 
-                await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId: context?.ClientId));
+                await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId: context?.Client.ClientId));
                 ModelState.AddModelError(string.Empty, AccountOptions.InvalidCredentialsErrorMessage);
             }
 
@@ -260,7 +261,6 @@ namespace IdentityServer4.Quickstart.UI
             var vm = await BuildLoginViewModelAsync(model);
             return View(vm);
         }
-
         #endregion
 
         private async Task<RedirectResult> ExecuteDelegationWhenApplicable(string subject,
@@ -344,43 +344,11 @@ namespace IdentityServer4.Quickstart.UI
             return View(vm);
         }
 
-        private async Task<LoginDelegationInputViewModel> BuildDelegationViewModel(
-          string returnUrl, string subject)
-        {
-            var context = await _interaction.GetAuthorizationContextAsync(returnUrl);
-
-            // get the users this user can act as
-            var usersToActAs = TestUsers.Users.Where(u => u.SubjectId != subject);  
-            var potentialUsers = new List<LocalUser>();
-
-            foreach (var userToActAs in usersToActAs)
-            {
-                potentialUsers.Add(new LocalUser()
-                {
-                    Name = $"{userToActAs.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.GivenName)?.Value} " +
-                    $"{userToActAs.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.FamilyName)?.Value}",
-                    Subject = userToActAs.SubjectId
-                });
-            }
-
-            var currentUserData = TestUsers.Users.FirstOrDefault(u => u.SubjectId == subject);
-            var currentUser = new LocalUser()
-            {
-                Name = $"{currentUserData.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.GivenName)?.Value} " +
-                $"{currentUserData.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.FamilyName)?.Value}",
-                Subject = subject,
-            };
-
-            return new LoginDelegationInputViewModel
-            {
-                PotentialUsers = potentialUsers,
-                CurrentUser = currentUser
-            };
-        }
-
         private async Task<RedirectResult> SetSigninCookieAndRedirect(string subject,
-       string username, string returnUrl, bool rememberLogin, string userToActAsSubject = null)
+            string username, string returnUrl, bool rememberLogin, string userToActAsSubject = null)
         {
+            // only set explicit expiration here if user chooses "remember me". 
+            // otherwise we rely upon expiration configured in cookie middleware.
             AuthenticationProperties props = null;
             if (AccountOptions.AllowRememberLogin && rememberLogin)
             {
@@ -391,43 +359,73 @@ namespace IdentityServer4.Quickstart.UI
                 };
             };
 
-           
             if ((string.IsNullOrEmpty(userToActAsSubject)) || (subject == userToActAsSubject))
             {
                 // no user selected
-                await HttpContext.SignInAsync(subject, username, props);
+                // issue authentication cookie with original subject ID and username
+                var isuser = new IdentityServerUser(subject)
+                {
+                    DisplayName = username
+                };
+
+                await HttpContext.SignInAsync(isuser, props);                 
             }
             else
-            {  
+            {
                 // user to act as selected - add an additional claim
                 var userToActAs = TestUsers.Users.First(u => u.SubjectId == userToActAsSubject);
 
                 // create the actor claim (= the "real" user, ie: the actor). 
                 // only add the subject at this time, the other values are filled out via a custom
                 // profile service (as we need to know the selected scopes to correctly fill out the claims)                
-             
+
                 var actorBuilder = new StringBuilder();
                 actorBuilder.Append(@"{""sub"":""");
                 actorBuilder.Append(subject);
                 actorBuilder.Append(@"""}");
 
                 // sign in as the selected user, passing through the "real" user as actor
-                await HttpContext.SignInAsync(userToActAsSubject, userToActAs.Username, props,
-                    new Claim("act",
-                              actorBuilder.ToString(),
-                              IdentityServer4.IdentityServerConstants.ClaimValueTypes.Json)); 
-            }
+                var isuser = new IdentityServerUser(userToActAsSubject)
+                {
+                    DisplayName = userToActAs.Username,
+                    AdditionalClaims = new List<Claim>() {
+                                            new Claim("act",
+                                            actorBuilder.ToString(),
+                                            IdentityServer4.IdentityServerConstants.ClaimValueTypes.Json) }
+                };
 
-            // make sure the returnUrl is still valid, and if so redirect back to authorize endpoint or a local page
-            // the IsLocalUrl check is only necessary if you want to support additional local pages,
-            // otherwise IsValidReturnUrl is more strict
-            if (_interaction.IsValidReturnUrl(returnUrl) || Url.IsLocalUrl(returnUrl))
+                await HttpContext.SignInAsync(isuser, props);                 
+            }
+             
+            // TODO pass through "isnativeclient"
+            //if (context != null)
+            //{
+            //    if (context.IsNativeClient())
+            //    {
+            //        // The client is native, so this change in how to
+            //        // return the response is for better UX for the end user.
+            //        return this.LoadingPage("Redirect", returnUrl);
+            //    }
+
+            //    // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
+            //    return Redirect(returnUrl);
+            //}
+
+            // request for a local page
+            if (Url.IsLocalUrl(returnUrl))
             {
                 return Redirect(returnUrl);
             }
-            return Redirect("~/");
+            else if (string.IsNullOrEmpty(returnUrl))
+            {
+                return Redirect("~/");
+            }
+            else
+            {
+                // user might have clicked on a malicious link - should be logged
+                throw new Exception("invalid return URL");
+            } 
         }
-
 
         /// <summary>
         /// Show logout page
@@ -492,6 +490,40 @@ namespace IdentityServer4.Quickstart.UI
         /*****************************************/
         /* helper APIs for the AccountController */
         /*****************************************/
+        private async Task<LoginDelegationInputViewModel> BuildDelegationViewModel(
+          string returnUrl, string subject)
+        {
+            var context = await _interaction.GetAuthorizationContextAsync(returnUrl);
+
+            // get the users this user can act as
+            var usersToActAs = TestUsers.Users.Where(u => u.SubjectId != subject);
+            var potentialUsers = new List<LocalUser>();
+
+            foreach (var userToActAs in usersToActAs)
+            {
+                potentialUsers.Add(new LocalUser()
+                {
+                    Name = $"{userToActAs.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.GivenName)?.Value} " +
+                    $"{userToActAs.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.FamilyName)?.Value}",
+                    Subject = userToActAs.SubjectId
+                });
+            }
+
+            var currentUserData = TestUsers.Users.FirstOrDefault(u => u.SubjectId == subject);
+            var currentUser = new LocalUser()
+            {
+                Name = $"{currentUserData.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.GivenName)?.Value} " +
+                $"{currentUserData.Claims.FirstOrDefault(c => c.Type == JwtClaimTypes.FamilyName)?.Value}",
+                Subject = subject,
+            };
+
+            return new LoginDelegationInputViewModel
+            {
+                PotentialUsers = potentialUsers,
+                CurrentUser = currentUser
+            };
+        }
+
         private async Task<LoginViewModel> BuildLoginViewModelAsync(string returnUrl)
         {
             var context = await _interaction.GetAuthorizationContextAsync(returnUrl);
@@ -518,19 +550,17 @@ namespace IdentityServer4.Quickstart.UI
             var schemes = await _schemeProvider.GetAllSchemesAsync();
 
             var providers = schemes
-                .Where(x => x.DisplayName != null ||
-                            (x.Name.Equals(AccountOptions.WindowsAuthenticationSchemeName, StringComparison.OrdinalIgnoreCase))
-                )
+                .Where(x => x.DisplayName != null)
                 .Select(x => new ExternalProvider
                 {
-                    DisplayName = x.DisplayName,
+                    DisplayName = x.DisplayName ?? x.Name,
                     AuthenticationScheme = x.Name
                 }).ToList();
 
             var allowLocal = true;
-            if (context?.ClientId != null)
+            if (context?.Client.ClientId != null)
             {
-                var client = await _clientStore.FindEnabledClientByIdAsync(context.ClientId);
+                var client = await _clientStore.FindEnabledClientByIdAsync(context.Client.ClientId);
                 if (client != null)
                 {
                     allowLocal = client.EnableLocalLogin;

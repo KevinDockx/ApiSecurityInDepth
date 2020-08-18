@@ -98,7 +98,7 @@ namespace ApiSecurityInDepth.Client.Controllers
             {
                 Address = discoveryDocumentResponse.TokenEndpoint,
                 ClientId = "api1jwtclient",
-                Scope = "api1",
+                Scope = "api1.fullaccess",
 
                 ClientAssertion =
                 {
