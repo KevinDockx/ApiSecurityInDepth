@@ -38,9 +38,7 @@ namespace ApiSecurityInDepth.API1.Controllers
                 { "subject_token_type",  "urn:ietf:params:oauth:token-type:access_token"},
                 { "subject_token", await HttpContext.GetTokenAsync("access_token") },
                 { "scope", "profile email api2" }
-            };
-            // note: hier kunnen wat additionele voorbeelden in, bvb om te tonen dat identity scopes
-            // al in het eerste token moeten zitten om ze mee door te krijgen in token 2
+            }; 
 
             var tokenResponse = await idpClient.RequestTokenAsync(new TokenRequest()
             {
