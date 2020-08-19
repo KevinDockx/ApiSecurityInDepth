@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -232,12 +233,13 @@ namespace IdentityServerHost.Quickstart.UI
                     await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.SubjectId, user.Username, clientId: context?.Client.ClientId));
 
                     // write a temp, encrypted cookie with values required for delegation.  Cookie gets cleared on effective signin. 
-                    var cookieModel = new DelegationDataBag()
+                    var cookieModel = new  // DelegationDataBag()
                     {
                         Subject = user.SubjectId,
                         UserName = user.Username,
                         ReturnUrl = model.ReturnUrl ?? "",
-                        RememberLogin = model.RememberLogin
+                        RememberLogin = model.RememberLogin, 
+                        IsNativeClient = context.IsNativeClient()
                     };
                     var cookieDataInJson = JsonConvert.SerializeObject(cookieModel);
                     var protectedData = _protector.Protect(cookieDataInJson);
@@ -248,7 +250,12 @@ namespace IdentityServerHost.Quickstart.UI
 
                     Response.Cookies.Append("DelegationDataBagCookie", protectedData, options);
 
-                    return await ExecuteDelegationWhenApplicable(user.SubjectId, user.Username, model.ReturnUrl, model.RememberLogin);
+                    return await ExecuteDelegationWhenApplicable(
+                        user.SubjectId, 
+                        user.Username, 
+                        model.ReturnUrl, 
+                        model.RememberLogin, 
+                        context.IsNativeClient());
 
                     // rest of code removed - is now handled after the delegation screen 
                 }
@@ -263,8 +270,8 @@ namespace IdentityServerHost.Quickstart.UI
         }
         #endregion
 
-        private async Task<RedirectResult> ExecuteDelegationWhenApplicable(string subject,
-          string username, string returnUrl, bool rememberLogin)
+        private async Task<IActionResult> ExecuteDelegationWhenApplicable(string subject,
+          string username, string returnUrl, bool rememberLogin, bool isNativeClient)
         {
             // are there users this user can act as?  This is where you'd write custom logic
             // to choose which users the user is allowed to act as.  For the demo
@@ -283,7 +290,7 @@ namespace IdentityServerHost.Quickstart.UI
             }
 
             // else, redirect
-            return await SetSigninCookieAndRedirect(subject, username, returnUrl, rememberLogin);
+            return await SetSigninCookieAndRedirect(subject, username, returnUrl, rememberLogin, isNativeClient);
         }
 
         /// <summary>
@@ -321,31 +328,36 @@ namespace IdentityServerHost.Quickstart.UI
             }
 
             var cookieDataInJson = _protector.Unprotect(protectedCookieValue);
-            var cookieData = JsonConvert.DeserializeObject<DelegationDataBag>(cookieDataInJson);
+            dynamic cookieData = JObject.Parse(cookieDataInJson);
 
             if (ModelState.IsValid)
             {
                 string impersonateSubject = null;
-                if (button != cookieData.Subject)
+                if (button != cookieData.Subject.Value)
                 {
-                    var actors = TestUsers.Users.Where(u => u.SubjectId != cookieData.Subject);
+                    var actors = TestUsers.Users.Where(u => u.SubjectId != cookieData.Subject.Value);
                     impersonateSubject = actors.Where(a => a.SubjectId == button).FirstOrDefault()?.SubjectId;
                 }
 
                 // do something with the actor and sign in.
-                return await SetSigninCookieAndRedirect(cookieData.Subject,
-                    cookieData.UserName, cookieData.ReturnUrl, cookieData.RememberLogin, impersonateSubject);
+                return await SetSigninCookieAndRedirect(
+                    cookieData.Subject.Value,
+                    cookieData.UserName.Value, 
+                    cookieData.ReturnUrl.Value,
+                    cookieData.RememberLogin.Value, 
+                    cookieData.IsNativeClient.Value, 
+                    impersonateSubject);
             }
 
             // something went wrong 
-            var vm = await BuildDelegationViewModel(cookieData.ReturnUrl,
-                cookieData.Subject);
+            var vm = await BuildDelegationViewModel(cookieData.ReturnUrl.Value,
+                cookieData.Subject.Value);
 
             return View(vm);
         }
 
-        private async Task<RedirectResult> SetSigninCookieAndRedirect(string subject,
-            string username, string returnUrl, bool rememberLogin, string userToActAsSubject = null)
+        private async Task<IActionResult> SetSigninCookieAndRedirect(string subject,
+            string username, string returnUrl, bool rememberLogin, bool isNativeClient, string userToActAsSubject = null)
         {
             // only set explicit expiration here if user chooses "remember me". 
             // otherwise we rely upon expiration configured in cookie middleware.
@@ -368,7 +380,7 @@ namespace IdentityServerHost.Quickstart.UI
                     DisplayName = username
                 };
 
-                await HttpContext.SignInAsync(isuser, props);                 
+                await HttpContext.SignInAsync(isuser, props);
             }
             else
             {
@@ -394,22 +406,16 @@ namespace IdentityServerHost.Quickstart.UI
                                             IdentityServer4.IdentityServerConstants.ClaimValueTypes.Json) }
                 };
 
-                await HttpContext.SignInAsync(isuser, props);                 
+                await HttpContext.SignInAsync(isuser, props);
             }
-             
-            // TODO pass through "isnativeclient"
-            //if (context != null)
-            //{
-            //    if (context.IsNativeClient())
-            //    {
-            //        // The client is native, so this change in how to
-            //        // return the response is for better UX for the end user.
-            //        return this.LoadingPage("Redirect", returnUrl);
-            //    }
 
-            //    // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
-            //    return Redirect(returnUrl);
-            //}
+
+            if (isNativeClient)
+            {
+                // The client is native, so this change in how to
+                // return the response is for better UX for the end user.
+                return this.LoadingPage("Redirect", returnUrl);
+            }
 
             // request for a local page
             if (Url.IsLocalUrl(returnUrl))
@@ -424,7 +430,7 @@ namespace IdentityServerHost.Quickstart.UI
             {
                 // user might have clicked on a malicious link - should be logged
                 throw new Exception("invalid return URL");
-            } 
+            }
         }
 
         /// <summary>

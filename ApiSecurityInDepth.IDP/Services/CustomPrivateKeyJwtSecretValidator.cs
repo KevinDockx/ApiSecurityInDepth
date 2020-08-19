@@ -29,7 +29,7 @@ namespace ApiSecurityInDepth.IDP.Services
         public CustomPrivateKeyJwtSecretValidator(IHttpContextAccessor contextAccessor, 
             ILogger<CustomPrivateKeyJwtSecretValidator> logger)
         {
-            // url of the IDP token endpoint - TODO improve this? cfr https://github.com/IdentityServer/IdentityServer4/blob/3.1.4/src/IdentityServer4/src/Validation/Default/PrivateKeyJwtSecretValidator.cs#L32
+            // url of the IDP token endpoint 
             _audienceUri = "https://localhost:44391/connect/token";
             _logger = logger;
         }
