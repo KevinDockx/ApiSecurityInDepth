@@ -306,10 +306,10 @@ namespace IdentityServerHost.Quickstart.UI
                 return RedirectToAction("Login", "Account");
             }
             var cookieDataInJson = _protector.Unprotect(protectedCookieValue);
-            var cookieData = JsonConvert.DeserializeObject<DelegationDataBag>(cookieDataInJson);
-
+            dynamic cookieData = JObject.Parse(cookieDataInJson);
+ 
             // build a model  
-            var vm = await BuildDelegationViewModel(cookieData.ReturnUrl, cookieData.Subject);
+            var vm = await BuildDelegationViewModel(cookieData.ReturnUrl.Value, cookieData.Subject.Value);
             return View(vm);
         }
 
